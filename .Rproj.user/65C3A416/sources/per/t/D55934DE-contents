@@ -1,0 +1,363 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  comment = "",
+  results = "hold",
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE,
+  fig.width = 4,
+  fig.height = 2.6,
+  fig.align = "center"
+)
+```
+
+
+
+```{r, message = FALSE,comments=FALSE, warning = FALSE}
+library("tidyverse")
+library("magrittr")
+library("here")
+library("janitor")
+library("readxl")
+library("lindia")
+```
+
+
+
+
+
+## 2.7 Exercise 2
+
+Now consider the relationship between tree height and tree volume for the same dataset in a new notebook, going through all of the same steps as above.
+
+### Visualising the relationship 
+
+To visualise the relationship between height and volume we can use a scatter plot, like in the lecture notes.
+
+```{r}
+
+
+trees2 <- trees %>%
+ mutate(Diameter = Girth) %>%
+ select(Height,Diameter,Volume)
+
+
+trees2 %>%
+      ggplot(mapping = aes(x = Height, y = Volume)) +
+      geom_point()+
+      labs(x = "Height", y = "Volume") +
+      ggtitle("Height and volume of black cherry trees") +
+      theme_classic()
+
+```
+
+
+We can see that sa the height of the tree increases the volume increases. Now we can eyeball a trend line.
+
+
+```{r}
+
+trees2 %>%
+  ggplot(mapping = aes(x = Height, y = Volume)) +
+  geom_point()+
+  labs(x = "Height", y = "Volume") +
+  ggtitle("Height and volume of black cherry trees") +
+  geom_abline(aes(intercept=-80, slope=1.5),col=2)+
+  theme_classic()
+
+```
+
+
+### Building the model
+
+```{r}
+linmod2<-lm(Volume~Height,data=trees2)
+linmod2
+summary(linmod2)
+linmod2$coefficients
+
+```
+
+
+From this, we get the best estimate of the trendline possible, which we call the _regression line_.  This gives us that the intercept is $b_0=-87.124$ and the gradient is $b_1=1.543 $. We can plot this regression line using gg plot.
+
+
+```{r}
+
+trees2 %>% ggplot(aes(Height,Volume))+
+      geom_point() +
+      geom_smooth(method = "lm", se = FALSE,colour="red") +
+      labs(x = "Height", y = "Volume") +
+      ggtitle("Height and volume of black cherry trees") +
+      theme_classic()
+
+```
+
+
+### Summary and prediction with the model
+
+We can already use this output to _summarise_ our data.  We can say that for each additional foot of height, the volume increases on average by 1.54335  feet. (We estimate the volume of a tree with height 80)
+
+```{r}
+-87.12361  + 1.54335*80
+```
+
+
+We also have a _prediction_ of the mean volume of a tree given a height.  So, for example, the mean volume of a tree with height 80 foot is
+$$
+E(X) =-87.12361  + 1.54335 \times  80 = 36.34439 \,\, {\rm   ft^3.}
+$$  
+We can also use R to do this calculation as follows (differences are due to rounding differences in the calculation).
+```{r}
+predict(linmod2,data.frame(Height=80))
+```
+
+
+
+Notice that there were five 80 foot trees in the dataset, with volumes of
+```{r}
+trees2[trees2$Height == 80,]$Diameter
+```
+
+
+The mean of these values is
+```{r}
+trees2[trees2$Height == 80,]$Volume %>% mean()
+```
+
+which isn't what the model predicted.  The reason is that this is not the prediction of the mean volume of trees of a given height for the particular dataset we have, but rather a prediction of the overall mean volume we would expect to find for 80 foot tall black cherry trees if we measured more and more and more of them.  This is what is called _inference_:  making a prediction about a _population_ (all black cherry trees) from a _sample_ (the 31 felled cherry trees in this dataset).
+
+
+
+### Checking the assumptions of the model
+
+We have also checked that the model is reasonable by checking the assumptions _Linearity_, _Homoscedasticity_ and _Normality_ of the model:
+
+1. Linearity:  looking at the scatterplot of diameter versus height, which was roughly linear, and 
+
+2. looking three plots of residuals:  
+
+    a. Homoscedasticity:  the scatter of residuals versus height, the spread seems to get larger as the height increases but I think this should be okay. I think this is down to the one outlier when the volume is massive around height 80.
+    
+    b. Normality:  the histogram of residuals, which looks roughly Gaussian
+    
+    c. Normality:  the qq plot of residuals, which looks roughly like a straight line.
+    
+The plots we investigate to evaluate if the model assumptions are reasonable are called _diagnostic plots_.  There is a single command that will give all of the diagnostic plots at once:
+```{r}
+linmod2 %>%
+  gg_diagnose(max.per.page = 1)
+```
+
+
+****************************
+
+Predict for all the values in dataset in one line of code:
+(this was a question of someone)
+
+# Create an empty variable for the predictions
+
+predictions <- c()
+
+# Use a for loop tp iterate over the dataset
+
+for(i in 1:nrow(trees2)){
+
+# Within the for loop we want to select the height of the ith observation 
+
+ith_height <- trees2$Height[i]
+
+# Make the prediction 
+
+ith_prediction <- predict(linmod2,data.frame(Height = ith_height))
+
+
+# Store the prediction 
+
+predictions <- c(predictions, ith_prediction)
+
+}
+
+trees2_predictions <- cbind(trees2,predictions)
+
+
+# Come out for loop and add that prediction on to the end of the dataset of a new column
+
+
+
+
+
+***************************************
+
+
+# Lab 1
+
+
+## Importing the data
+
+```{r}
+comic_book_characters<-read_csv(here("data/comic_characters.csv"))
+```
+
+
+## Question 1
+
+1.  Make sure that the variables ID, ALIGN, EYE, HAIR, SEX, LGBTQ, ALIVE, MONTH_FA and UNIVERSE are treated as factors.
+
+By looking in the top right hand corner we can see that all of the above mentioned variables are of type character.
+
+```{r}
+comic_book_characters <- comic_book_characters %>%
+  mutate_at(vars(ID, ALIGN,EYE,HAIR,SEX,LGBTQ,ALIVE,MONTH_FA,UNIVERSE), 
+            list(factor)) 
+```
+
+
+## Question 2
+
+2. Summarise the dataset
+
+Firstly, we can use the summary function to get an idea of the variables in the dataset. 
+```{r}
+summary(comic_book_characters)
+```
+
+
+
+## Question 3
+
+3. Remove any incomplete cases 
+
+An incomplete case is considered as a row with a missing value.
+
+
+```{r}
+comic_book_characters %>% sapply(function(x) sum(is.na(x)) )
+```
+
+
+```{r}
+clean_comic_book_characters<- comic_book_characters %>%
+  drop_na()
+clean_comic_book_characters %>% sapply(function(x) sum(is.na(x)) )
+```
+
+
+
+## Question 4 
+
+4. For the years 1956-1999, create and evaluate and interpret a simple linear regression model for number of appearances a character has had as a function of year introduced.
+
+### Filtering the dataset
+
+```{r}
+comic_book_model_data <- clean_comic_book_characters %>%
+  filter(YEAR_FA >= 1956 & YEAR_FA <= 1999 )
+max(comic_book_model_data$YEAR_FA)
+min(comic_book_model_data$YEAR_FA)
+```
+
+
+
+### Visualising the data
+
+To visualise the relationship between number of appearances a character has had and the year introduced we create a gg scatter plot.
+
+```{r}
+comic_book_model_data %>%
+  ggplot(mapping = aes(x = YEAR_FA, y = APPEARANCES)) +
+  geom_point()+
+  labs(x = "YEAR_FA", y = "APPEARANCES") +
+  ggtitle("YEAR_FA and APPEARANCES of comic book characters from 56-99") +
+  theme_classic()
+```
+
+
+I imagine that the later the year of first appearance the less appearances but there seems to be some major outliers that have a lot of appearances and quite a lot of data points with little appearances. There seems to be a weak linear relationship, as the year increases the number of appearances decreases.
+
+```{r}
+comic_book_model_data %>% ggplot(aes(YEAR_FA,APPEARANCES))+
+      geom_point() +
+      geom_smooth(method = "lm", se = FALSE,colour="red") +
+      labs(x = "YEAR_FA", y = "APPEARANCES") +
+      ggtitle("YEAR_FA and APPEARANCES of comic book characters from 56-99") +
+      theme_classic()
+```
+
+
+### Building the model
+
+```{r}
+linmod<-lm(APPEARANCES~YEAR_FA,data=comic_book_model_data)
+linmod
+summary(linmod)
+linmod$coefficients
+```
+
+We can use the estimates from the above code to formulate the an equation for the model.
+
+$$ E(X;y) = b_0 + b_1 \times y_1 = 8363.1053 + -4.1879 \times YEARFA $$
+
+
+### Summary and prediction with the model
+
+We can already use this output to _summarise_ our data.  We can say that for each year later the character appears we expect the average appearances to decrease by 4.1879.
+
+```{r}
+8363.105289  -4.187855 *1990 # This is subbing in YEARFA = 1990 into the formula above
+```
+
+
+Now using the predict() function.
+```{r}
+predict(linmod,data.frame(YEAR_FA=1990))
+```
+
+
+This is all the appearances for the caroges that were introduced in 1990.
+```{r}
+comic_book_model_data[comic_book_model_data$YEAR_FA == 1990,]$APPEARANCES
+```
+
+The mean of these values is
+```{r}
+comic_book_model_data[comic_book_model_data$YEAR_FA == 1990,]$APPEARANCES %>% mean()
+```
+
+which isn't what the model predicted.  The reason is that this is not the prediction of the mean appearances of a character introduced in a given year for the particular dataset we have, but rather a prediction of the overall mean appearances of a character we would expect to find for a character introduced in 1990 if we measured more and more and more of them.  This is what is called _inference_:  making a prediction about a _population_ (all comic book characters) from a _sample_ (our comic_book dataset).
+
+
+### Checking the assumptions of the model
+
+We have also checked that the model is reasonable by checking the assumptions _Linearity_, _Homoscedasticity_ and _Normality_ of the model:
+
+1. Linearity:  looking at the scatterplot of year_fa versus appearance, there doesn't really seem to be a clea linear relationship, this may be down the rage of the observations (there is a bid difference in the number of characters with lots of appearances and characters with a little appearances).
+
+2. looking three plots of residuals:  
+
+    a. Homoscedasticity:  the scatter of residuals versus YEAR_FA, the spread of the residuals looks okay as year_fa introduced increases
+    
+    b. Normality:  the histogram of residuals, looks more like a Poisson distribution.
+    
+    c. Normality:  the qq plot of residuals, clearly has a tail at the end and is not very straight
+    
+The plots we investigate to evaluate if the model assumptions are reasonable are called _diagnostic plots_.  There is a single command that will give all of the diagnostic plots at once:
+```{r}
+linmod %>%
+  gg_diagnose(max.per.page = 1)
+```
+
+
+Overall, the aim of this final exercise was to realise that the residuals were not normal therefore the assumption that the residuals are normal (normality) is not true. In this case it would have been better to use a Poisson model, as the response variable in question, appearances, is a count variable.
+
+
+So, the model is not very good. It is probably better to use poisson distribution.The key feature of poisson distribution is that the response variable is actually count data so in our case the apperances is count so we count the number of appearances.
+
+
+
+
